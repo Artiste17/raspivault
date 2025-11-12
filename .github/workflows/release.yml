@@ -1,0 +1,51 @@
+name: RaspiVault Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install changelog CLI
+        run: npm install -g conventional-changelog-cli
+
+      - name: Generate CHANGELOG
+        run: |
+          conventional-changelog -p conventionalcommits -i CHANGELOG.md -s -r 0
+
+      - name: Commit updated CHANGELOG
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+          git add CHANGELOG.md
+          git commit -m "docs(changelog): update for ${{ github.ref_name }}" || echo "no changes"
+          git push origin HEAD:main
+
+      - name: Package RaspiVault
+        run: |
+          mkdir release
+          cp -r docker-compose.yml config scripts ui CHANGELOG.md README.md release/
+          zip -r raspivault-${{ github.ref_name }}.zip release/
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: raspivault-${{ github.ref_name }}.zip
+          body_path: CHANGELOG.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

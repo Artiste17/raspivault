@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  bitcoin-core:
+    image: ruimarinho/bitcoin-core:latest
+    container_name: bitcoin-core
+    volumes:
+      - /home/artiste17/bitcoin:/home/bitcoin/.bitcoin
+    ports:
+      - "8333:8333"
+      - "8332:8332"
+    restart: unless-stopped
+
+  electrs:
+    image: lukechilds/electrs
+    container_name: electrum-server
+    depends_on: [bitcoin-core]
+    environment:
+      - ELECTRS_NETWORK=mainnet
+      - ELECTRS_DB_DIR=/home/bitcoin/electrs
+    volumes:
+      - /home/artiste17/bitcoin:/data/bitcoin:ro
+    ports:
+      - "50002:50002"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=raspivault
+      - GF_SERVER_ROOT_URL=http://bittiumnode.local:3000/
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  web-dashboard:
+    build: ./ui/backend
+    container_name: raspivault-ui
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  cloudflare:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflare-tunnel
+    command: tunnel run
+    env_file: ./config/cloudflare.env
+    restart: unless-stopped
